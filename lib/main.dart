@@ -41,7 +41,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             home: Scaffold(
-              backgroundColor: const Color(0xFFFFF7F2),
+              backgroundColor: const Color(0xFFFFF9F5),
               body: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -51,7 +51,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
                       const Icon(
                         Icons.error_outline_rounded,
                         size: 52,
-                        color: Color(0xFFFF6B00),
+                        color: Color(0xFFFF7A22),
                       ),
                       const SizedBox(height: 16),
                       const Text(
@@ -75,27 +75,31 @@ class _BootstrapAppState extends State<_BootstrapApp> {
           );
         }
 
-        return const MaterialApp(
+        return MaterialApp(
           debugShowCheckedModeBanner: false,
           home: Scaffold(
-            backgroundColor: Color(0xFFFFF7F2),
+            backgroundColor: const Color(0xFFFFF9F5),
             body: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.all(Radius.circular(30)),
                       gradient: LinearGradient(
-                        colors: [Color(0xFFFF9A44), Color(0xFFFF6B00)],
+                        colors: [Color(0xFFFF9E57), Color(0xFFFF7A22)],
                       ),
                     ),
                     child: Padding(
-                      padding: EdgeInsets.all(22),
-                      child: Icon(
-                        Icons.graphic_eq_rounded,
-                        size: 44,
-                        color: Colors.white,
+                      padding: const EdgeInsets.all(8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.all(Radius.circular(22)),
+                        child: Image.asset(
+                          'assets/images/app_logo_cropped.png',
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
@@ -105,7 +109,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
                     style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
                   ),
                   SizedBox(height: 8),
-                  Text('正在准备播放器与本地歌单…'),
+                  Text('正在加载'),
                   SizedBox(height: 16),
                   SizedBox(
                     width: 180,

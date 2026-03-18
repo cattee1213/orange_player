@@ -66,7 +66,6 @@ class _PlayerPageState extends State<PlayerPage> {
                       onImport: _importTracks,
                       onRemove: _removeTrack,
                     ),
-                    const _AboutTab(),
                   ],
                 ),
               ),
@@ -79,8 +78,13 @@ class _PlayerPageState extends State<PlayerPage> {
               child: NavigationBar(
                 selectedIndex: _tabIndex,
                 height: 72,
-                backgroundColor: Colors.white.withValues(alpha: 0.96),
-                indicatorColor: const Color(0x33FF8E3C),
+                backgroundColor: Theme.of(context).colorScheme.surface
+                    .withValues(
+                      alpha: Theme.of(context).brightness == Brightness.dark
+                          ? 0.92
+                          : 0.9,
+                    ),
+                indicatorColor: Theme.of(context).colorScheme.primaryContainer,
                 onDestinationSelected: (index) {
                   setState(() => _tabIndex = index);
                 },
@@ -93,23 +97,17 @@ class _PlayerPageState extends State<PlayerPage> {
                     icon: Icon(Icons.queue_music_rounded),
                     label: '歌单',
                   ),
-                  NavigationDestination(
-                    icon: Icon(Icons.info_outline_rounded),
-                    label: '关于',
-                  ),
                 ],
               ),
             ),
           ),
-          floatingActionButton: _tabIndex != 2
-              ? FloatingActionButton.extended(
-                  onPressed: _importTracks,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.library_music_rounded),
-                  label: const Text('导入音乐'),
-                )
-              : null,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _importTracks,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            icon: const Icon(Icons.library_music_rounded),
+            label: const Text('导入音乐'),
+          ),
         );
       },
     );
@@ -130,6 +128,9 @@ class _HomeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final summary = controller.hasTracks
+        ? '${controller.tracks.length} 首音乐已加入播放列表'
+        : '导入本地音乐后即可开始播放';
     final total = controller.duration.inMilliseconds <= 0
         ? 1.0
         : controller.duration.inMilliseconds.toDouble();
@@ -145,13 +146,13 @@ class _HomeTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionHeader(
-            eyebrow: '聆听橙子',
-            title: '你的离线橙调播放器',
-            subtitle: '支持本地文件、后台播放、歌单维护与三种播放模式。',
+            eyebrow: '首页',
+            title: '正在播放',
+            subtitle: summary,
             trailing: FilledButton.tonalIcon(
               onPressed: onImport,
               icon: const Icon(Icons.add_circle_outline_rounded),
-              label: const Text('添加本地文件'),
+              label: const Text('导入'),
             ),
           ),
           const SizedBox(height: 20),
@@ -187,13 +188,13 @@ class _HomeTab extends StatelessWidget {
                     Text(
                       _formatDuration(controller.position),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     Text(
                       _formatDuration(controller.duration),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -208,7 +209,7 @@ class _HomeTab extends StatelessWidget {
                           ? '${controller.tracks.length} 首歌曲'
                           : '等待导入音乐',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -217,7 +218,7 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('接下来播放', style: theme.textTheme.titleLarge),
+          Text('下一首', style: theme.textTheme.titleLarge),
           const SizedBox(height: 12),
           if (controller.upcomingTracks.isEmpty)
             _EmptyPrompt(onImport: onImport)
@@ -254,12 +255,14 @@ class _PlaylistTab extends StatelessWidget {
         children: [
           _SectionHeader(
             eyebrow: '播放列表',
-            title: '我的橙子歌单',
-            subtitle: '支持拖拽排序、删除项目，并自动记住上次播放位置。',
+            title: '歌曲管理',
+            subtitle: controller.hasTracks
+                ? '${controller.tracks.length} 首歌曲，可拖拽排序和移除'
+                : '当前还没有歌曲',
             trailing: OutlinedButton.icon(
               onPressed: onImport,
               icon: const Icon(Icons.file_open_rounded),
-              label: const Text('继续导入'),
+              label: const Text('添加'),
             ),
           ),
           const SizedBox(height: 16),
@@ -313,77 +316,6 @@ class _PlaylistTab extends StatelessWidget {
   }
 }
 
-class _AboutTab extends StatelessWidget {
-  const _AboutTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            eyebrow: '关于应用',
-            title: '聆听橙子',
-            subtitle: '作者：橙子 · 一款专注离线、本地与后台播放体验的音乐播放器。',
-            trailing: const Icon(Icons.music_note_rounded, size: 36),
-          ),
-          const SizedBox(height: 20),
-          _GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '设计理念',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  '以暴力橙为主色，结合留白、柔和阴影与圆角卡片，营造高雅、扁平、轻盈的播放器气质。',
-                  style: TextStyle(color: Colors.white, height: 1.6),
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: const [
-                    _InfoBadge(text: '本地离线导入'),
-                    _InfoBadge(text: '后台播放'),
-                    _InfoBadge(text: '顺序 / 随机 / 单曲循环'),
-                    _InfoBadge(text: '播放列表排序维护'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _FeaturePanel(
-            icon: Icons.offline_bolt_rounded,
-            title: '离线优先',
-            description: '通过系统文件选择器导入手机本地音频，不依赖网络服务即可播放。',
-          ),
-          const SizedBox(height: 12),
-          _FeaturePanel(
-            icon: Icons.headphones_battery_rounded,
-            title: '后台不中断',
-            description: '支持系统通知栏 / 锁屏媒体控制，切到后台也能持续播放。',
-          ),
-          const SizedBox(height: 12),
-          _FeaturePanel(
-            icon: Icons.auto_awesome_rounded,
-            title: '橙系审美',
-            description: '首页、歌单、信息页统一橙色渐变和玻璃质感卡片，适合继续扩展。',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _NowPlayingCard extends StatelessWidget {
   const _NowPlayingCard({required this.controller, required this.currentTrack});
 
@@ -393,18 +325,28 @@ class _NowPlayingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final base = isDark ? const Color(0xFF2A211D) : const Color(0xFFFFF1E6);
+    final accent = isDark ? const Color(0xFF5E3A24) : const Color(0xFFF6D0B4);
+    final border = isDark ? const Color(0x33FFD2B0) : const Color(0x66FFFFFF);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFF9A44), Color(0xFFFF6B00), Color(0xFFFF8C42)],
+          colors: [
+            base,
+            accent,
+            scheme.primary.withValues(alpha: isDark ? 0.3 : 0.18),
+          ],
         ),
         borderRadius: BorderRadius.circular(36),
-        boxShadow: const [
+        border: Border.all(color: border),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33FF6B00),
+            color: scheme.shadow.withValues(alpha: isDark ? 0.18 : 0.1),
             blurRadius: 28,
             offset: Offset(0, 20),
           ),
@@ -416,33 +358,40 @@ class _NowPlayingCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Now Playing',
+                '播放中',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: scheme.onSurface,
                 ),
               ),
               IconButton(
                 onPressed: controller.cyclePlaybackMode,
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.16),
+                  backgroundColor: scheme.surface.withValues(
+                    alpha: isDark ? 0.6 : 0.72,
+                  ),
                 ),
-                color: Colors.white,
+                color: scheme.onSurface,
                 icon: Icon(_modeIcon(controller.playbackMode)),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Container(
-            width: 148,
-            height: 148,
+            width: 160,
+            height: 160,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.94),
-              shape: BoxShape.circle,
+              color: scheme.surface.withValues(alpha: isDark ? 0.9 : 0.94),
+              borderRadius: BorderRadius.circular(36),
             ),
-            child: const Icon(
-              Icons.graphic_eq_rounded,
-              size: 72,
-              color: Color(0xFFFF6B00),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/app_logo_cropped.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -450,14 +399,16 @@ class _NowPlayingCard extends StatelessWidget {
             currentTrack?.title ?? '还没有选中的歌曲',
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
+              color: scheme.onSurface,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             currentTrack?.artist ?? '点击下方按钮导入本地音乐',
-            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 18),
           Row(
@@ -489,10 +440,10 @@ class _NowPlayingCard extends StatelessWidget {
           ),
           if (controller.isBusy) ...[
             const SizedBox(height: 14),
-            const LinearProgressIndicator(
+            LinearProgressIndicator(
               minHeight: 4,
-              backgroundColor: Color(0x22FFFFFF),
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              backgroundColor: scheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
             ),
           ],
         ],
@@ -521,13 +472,21 @@ class _PlaylistTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: isCurrent ? const Color(0xFFFFF0E5) : Colors.white,
+        color: isCurrent
+            ? scheme.primaryContainer.withValues(alpha: 0.72)
+            : scheme.surface.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
+        border: Border.all(
+          color: isCurrent
+              ? scheme.primary.withValues(alpha: 0.28)
+              : scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x11000000),
+            color: scheme.shadow.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: Offset(0, 10),
           ),
@@ -544,11 +503,11 @@ class _PlaylistTile extends StatelessWidget {
           child: CircleAvatar(
             radius: 24,
             backgroundColor: isCurrent
-                ? const Color(0xFFFF6B00)
-                : const Color(0xFFFFE0CC),
+                ? scheme.primary
+                : scheme.secondaryContainer,
             child: Icon(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: isCurrent ? Colors.white : const Color(0xFFFF6B00),
+              color: isCurrent ? scheme.onPrimary : scheme.onSecondaryContainer,
             ),
           ),
         ),
@@ -557,7 +516,7 @@ class _PlaylistTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleMedium?.copyWith(
-            color: const Color(0xFF2A1C12),
+            color: scheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -597,14 +556,19 @@ class _QueuePreviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: scheme.surface.withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x11000000),
+            color: scheme.shadow.withValues(alpha: 0.06),
             blurRadius: 18,
             offset: Offset(0, 12),
           ),
@@ -612,10 +576,13 @@ class _QueuePreviewTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 24,
-            backgroundColor: Color(0xFFFFF0E5),
-            child: Icon(Icons.play_arrow_rounded, color: Color(0xFFFF6B00)),
+            backgroundColor: scheme.secondaryContainer,
+            child: Icon(
+              Icons.play_arrow_rounded,
+              color: scheme.onSecondaryContainer,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -626,20 +593,19 @@ class _QueuePreviewTile extends StatelessWidget {
                   track.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   track.artist,
-                  style: const TextStyle(color: Color(0xFF846E61)),
+                  style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFFFF6B00)),
+          Icon(Icons.chevron_right_rounded, color: scheme.primary),
         ],
       ),
     );
@@ -650,13 +616,13 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.eyebrow,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.trailing,
   });
 
   final String eyebrow;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? trailing;
 
   @override
@@ -672,19 +638,21 @@ class _SectionHeader extends StatelessWidget {
               Text(
                 eyebrow,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFFFF6B00),
+                  color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 8),
               Text(title, style: theme.textTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: const Color(0xFF6C5548),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -705,19 +673,29 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFAD66), Color(0xFFFF7B1C)],
+          colors: [
+            scheme.surface.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.82 : 0.86,
+            ),
+            scheme.surfaceContainer.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.72 : 0.88,
+            ),
+          ],
         ),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x1AFF6B00),
+            color: scheme.shadow.withValues(alpha: 0.06),
             blurRadius: 24,
             offset: Offset(0, 16),
           ),
@@ -735,15 +713,20 @@ class _EmptyPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x11000000),
+            color: scheme.shadow.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: Offset(0, 12),
           ),
@@ -752,87 +735,25 @@ class _EmptyPrompt extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.library_music_outlined,
-            size: 44,
-            color: Color(0xFFFF6B00),
-          ),
+          Icon(Icons.library_music_outlined, size: 44, color: scheme.primary),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '还没有音乐',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '点击按钮从手机或本地磁盘导入音频文件，马上开始你的橙色歌单。',
+          Text(
+            '导入本地音频后即可开始播放。',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF7A6458), height: 1.5),
+            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: onImport,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('导入第一首音乐'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeaturePanel extends StatelessWidget {
-  const _FeaturePanel({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 16,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: const Color(0xFFFFF0E5),
-            child: Icon(icon, color: const Color(0xFFFF6B00)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: const TextStyle(color: Color(0xFF6F594B), height: 1.5),
-                ),
-              ],
-            ),
+            label: const Text('导入音乐'),
           ),
         ],
       ),
@@ -855,6 +776,7 @@ class _CircleControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(999),
@@ -862,13 +784,15 @@ class _CircleControl extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: primary ? Colors.white : Colors.white.withValues(alpha: 0.16),
+          color: primary
+              ? scheme.primary
+              : scheme.surface.withValues(alpha: 0.72),
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
           size: primary ? 36 : 30,
-          color: primary ? const Color(0xFFFF6B00) : Colors.white,
+          color: primary ? scheme.onPrimary : scheme.onSurface,
         ),
       ),
     );
@@ -882,9 +806,10 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
+        color: scheme.surface.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
@@ -892,7 +817,7 @@ class _ModeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_modeIcon(mode), size: 18, color: Colors.white),
+            Icon(_modeIcon(mode), size: 18, color: scheme.onSurface),
             const SizedBox(width: 8),
             Text(
               switch (mode) {
@@ -900,8 +825,8 @@ class _ModeChip extends StatelessWidget {
                 PlaybackMode.shuffle => '随机播放',
                 PlaybackMode.repeatOne => '单曲循环',
               },
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: scheme.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -920,10 +845,11 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Expanded(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.14),
+          color: scheme.surface.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Padding(
@@ -931,14 +857,14 @@ class _StatPill extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white70)),
+              Text(label, style: TextStyle(color: scheme.onSurfaceVariant)),
               const SizedBox(height: 6),
               Text(
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: scheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -951,37 +877,12 @@ class _StatPill extends StatelessWidget {
   }
 }
 
-class _InfoBadge extends StatelessWidget {
-  const _InfoBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _BackdropDecoration extends StatelessWidget {
   const _BackdropDecoration();
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return IgnorePointer(
       child: Stack(
         children: [
@@ -990,7 +891,9 @@ class _BackdropDecoration extends StatelessWidget {
             left: -50,
             child: _GlowCircle(
               size: 220,
-              colors: const [Color(0x55FFAA66), Color(0x00FFAA66)],
+              colors: isDark
+                  ? const [Color(0x223A2316), Color(0x003A2316)]
+                  : const [Color(0x30F6C59C), Color(0x00F6C59C)],
             ),
           ),
           Positioned(
@@ -998,7 +901,9 @@ class _BackdropDecoration extends StatelessWidget {
             right: -100,
             child: _GlowCircle(
               size: 260,
-              colors: const [Color(0x44FF7A1B), Color(0x00FF7A1B)],
+              colors: isDark
+                  ? const [Color(0x22A95A2A), Color(0x00A95A2A)]
+                  : const [Color(0x22F7B071), Color(0x00F7B071)],
             ),
           ),
           Positioned(
@@ -1006,7 +911,9 @@ class _BackdropDecoration extends StatelessWidget {
             left: -60,
             child: _GlowCircle(
               size: 180,
-              colors: const [Color(0x33FF8B3D), Color(0x00FF8B3D)],
+              colors: isDark
+                  ? const [Color(0x1EE0A36D), Color(0x00E0A36D)]
+                  : const [Color(0x20FFD8B0), Color(0x00FFD8B0)],
             ),
           ),
         ],

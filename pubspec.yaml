@@ -18,9 +18,43 @@ dependencies:
   shared_preferences: ^2.5.4
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.6
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_logo.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/images/app_logo.png
+    background_color: '#FFF7F2'
+    theme_color: '#FF6B00'
+  windows:
+    generate: true
+    image_path: assets/images/app_logo.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/images/app_logo.png
+
+flutter_native_splash:
+  color: '#FFF9F5'
+  color_dark: '#161616'
+  image: assets/images/app_logo_cropped.png
+  android: true
+  ios: true
+  android_12:
+    color: '#FFF9F5'
+    color_dark: '#161616'
+    image: assets/images/app_logo_cropped.png
+
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/app_logo.png
+    - assets/images/app_logo_cropped.png
