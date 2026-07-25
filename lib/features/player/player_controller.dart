@@ -181,10 +181,24 @@ class PlayerController extends ChangeNotifier {
       return 0;
     }
 
+    await addTracks(additions);
+    return additions.length;
+  }
+
+  Future<void> addTrack(LocalTrack track) => addTracks([track]);
+
+  Future<void> addTracks(Iterable<LocalTrack> tracks) async {
+    final existingIds = _tracks.map((track) => track.id).toSet();
+    final additions = tracks
+        .where((track) => !existingIds.contains(track.id))
+        .toList();
+    if (additions.isEmpty) {
+      return;
+    }
+
     final preferredTrackId = currentTrack?.id;
     final resumePosition = _position;
     final resumePlayback = _isPlaying;
-
     _tracks = [..._tracks, ...additions];
     await _rebuildQueue(
       preferredTrackId: preferredTrackId,
@@ -192,7 +206,6 @@ class PlayerController extends ChangeNotifier {
       resumePlayback: resumePlayback,
     );
     await _persistPlaylist();
-    return additions.length;
   }
 
   Future<void> playTrack(int index) async {

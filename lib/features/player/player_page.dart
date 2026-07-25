@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../media_library/local_music_library_page.dart';
 import 'models/local_track.dart';
 import 'player_controller.dart';
 
@@ -12,6 +13,14 @@ class PlayerPage extends StatefulWidget {
 
 class _PlayerPageState extends State<PlayerPage> {
   PlayerController get controller => widget.controller;
+
+  Future<void> _openLibrary() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LocalMusicLibraryPage(playerController: controller),
+      ),
+    );
+  }
 
   Future<void> _importTracks() async {
     final messenger = ScaffoldMessenger.of(context);
@@ -40,7 +49,10 @@ class _PlayerPageState extends State<PlayerPage> {
               SafeArea(
                 child: Column(
                   children: [
-                    _PlayerHeader(onImport: _importTracks),
+                    _PlayerHeader(
+                      onImport: _importTracks,
+                      onOpenLibrary: _openLibrary,
+                    ),
                     const SizedBox(height: 12),
                     _NowPlayingCard(
                       controller: controller,
@@ -61,7 +73,8 @@ class _PlayerPageState extends State<PlayerPage> {
 
 class _PlayerHeader extends StatelessWidget {
   final VoidCallback onImport;
-  const _PlayerHeader({required this.onImport});
+  final VoidCallback onOpenLibrary;
+  const _PlayerHeader({required this.onImport, required this.onOpenLibrary});
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +97,20 @@ class _PlayerHeader extends StatelessWidget {
               ),
             ],
           ),
-          IconButton.filledTonal(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: onImport,
-            tooltip: '导入音乐',
+          Row(
+            children: [
+              IconButton.filledTonal(
+                icon: const Icon(Icons.library_music_rounded),
+                onPressed: onOpenLibrary,
+                tooltip: '本地曲库',
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                icon: const Icon(Icons.add_rounded),
+                onPressed: onImport,
+                tooltip: '导入音乐',
+              ),
+            ],
           ),
         ],
       ),

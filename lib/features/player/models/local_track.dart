@@ -7,12 +7,14 @@ class LocalTrack {
     required this.path,
     required this.title,
     required this.artist,
+    this.isGenerated = false,
   });
 
   final String id;
   final String path;
   final String title;
   final String artist;
+  final bool isGenerated;
 
   factory LocalTrack.fromPath(
     String filePath, {
@@ -37,11 +39,18 @@ class LocalTrack {
       path: json['path'] as String,
       title: json['title'] as String,
       artist: json['artist'] as String? ?? '本地音乐',
+      isGenerated: json['isGenerated'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'path': path, 'title': title, 'artist': artist};
+    return {
+      'id': id,
+      'path': path,
+      'title': title,
+      'artist': artist,
+      'isGenerated': isGenerated,
+    };
   }
 
   MediaItem get mediaItem =>
