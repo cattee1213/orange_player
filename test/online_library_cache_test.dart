@@ -40,6 +40,15 @@ void main() {
     expect(restored?.tracks.single.title, '晚风');
     expect(restored?.tracks.single.artist, '橙子');
     expect(restored?.tracks.single.isRemote, isTrue);
+
+    final audio = await cache.targetAudioFile(snapshot.tracks.single.path);
+    await audio.parent.create(recursive: true);
+    await audio.writeAsBytes(const [1, 2, 3]);
+
+    await cache.clear();
+    expect(await cache.readCatalog(), isNull);
+    expect(await cache.isAudioCached(snapshot.tracks.single.path), isFalse);
+    expect(await cache.audioBytes(), 0);
   });
 
   test('an existing audio file is not downloaded again', () async {

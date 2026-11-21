@@ -217,12 +217,15 @@ class _OnlineMusicLibraryPageState extends State<OnlineMusicLibraryPage> {
     });
   }
 
-  Future<void> _clearAudioCache() async {
+  Future<void> _clearLibraryCache() async {
+    final audio = _audioBytes > 0
+        ? '已下载音频 ${formatByteSize(_audioBytes)}'
+        : '已下载音频';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清除音频缓存？'),
-        content: Text('将删除已下载的音频（${formatByteSize(_audioBytes)}）。曲目列表仍会保留。'),
+        title: const Text('清除在线曲库缓存？'),
+        content: Text('将删除$audio和已保存的曲目列表，然后重新读取服务器。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -235,11 +238,37 @@ class _OnlineMusicLibraryPageState extends State<OnlineMusicLibraryPage> {
         ],
       ),
     );
-    if (confirmed != true) {
+    if (confirmed != true || !mounted) {
       return;
     }
-    await _cache.clearAudio();
-    await _refreshCacheStats();
+    _cancelCache = true;
+    await _cache.clear();
+    try {
+      await widget.playerController.releaseCachedAudio();
+    } catch (_) {}
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _tracks = const [];
+      _cachedUrls = const {};
+      _audioBytes = 0;
+      _sourceLabel = null;
+      _loadedUrl = null;
+      _truncated = false;
+      _fetchedAt = null;
+      _error = null;
+      _caching = false;
+      _cancelCache = false;
+      _cacheProgress = null;
+    });
+    await _refreshLibrary();
+    if (!mounted || _error != null) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已清除在线曲库缓存')));
   }
 
   Future<void> _play(LocalTrack track) async {
@@ -323,10 +352,10 @@ class _OnlineMusicLibraryPageState extends State<OnlineMusicLibraryPage> {
       appBar: AppBar(
         title: const Text('在线曲库'),
         actions: [
-          if (_audioBytes > 0)
+          if (_loadedUrl != null || _audioBytes > 0)
             IconButton(
-              tooltip: '清除音频缓存',
-              onPressed: _caching ? null : _clearAudioCache,
+              tooltip: '清除曲库缓存',
+              onPressed: _loading || _caching ? null : _clearLibraryCache,
               icon: const Icon(Icons.delete_outline_rounded),
             ),
           IconButton(

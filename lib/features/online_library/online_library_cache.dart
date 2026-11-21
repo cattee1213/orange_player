@@ -65,6 +65,7 @@ class OnlineLibraryCache {
   final Directory? _rootOverride;
   final http.Client? _client;
   final Map<String, Future<void>> _downloads = {};
+  int _epoch = 0;
 
   Future<OnlineLibrarySnapshot?> readCatalog() async {
     final file = File(p.join((await _root()).path, 'catalog.json'));
@@ -141,6 +142,15 @@ class OnlineLibraryCache {
     }
   }
 
+  Future<void> clear() async {
+    _epoch += 1;
+    await clearAudio();
+    final catalog = File(p.join((await _root()).path, 'catalog.json'));
+    if (await catalog.exists()) {
+      await catalog.delete();
+    }
+  }
+
   Future<void> downloadAudio(
     String url, {
     void Function(int received, int? total)? onProgress,
@@ -168,7 +178,8 @@ class OnlineLibraryCache {
     void Function(int received, int? total)? onProgress,
     bool Function()? isCancelled,
   }) async {
-    if (isCancelled?.call() == true) {
+    final epoch = _epoch;
+    if (_isCancelled(epoch, isCancelled)) {
       throw const DownloadCancelled();
     }
     final target = await _audioFile(url);
@@ -199,7 +210,7 @@ class OnlineLibraryCache {
       await sink.addStream(
         response.stream
             .map((chunk) {
-              if (isCancelled?.call() == true) {
+              if (_isCancelled(epoch, isCancelled)) {
                 throw const DownloadCancelled();
               }
               received += chunk.length;
@@ -212,7 +223,7 @@ class OnlineLibraryCache {
       await sink.close();
       sink = null;
 
-      if (isCancelled?.call() == true) {
+      if (_isCancelled(epoch, isCancelled)) {
         throw const DownloadCancelled();
       }
       if (received == 0 || (total != null && received != total)) {
@@ -222,6 +233,10 @@ class OnlineLibraryCache {
         await target.delete();
       }
       await partial.rename(target.path);
+      if (_isCancelled(epoch, isCancelled)) {
+        await _deleteIfExists(target);
+        throw const DownloadCancelled();
+      }
     } on DownloadCancelled {
       rethrow;
     } on OnlineLibraryException {
@@ -274,6 +289,10 @@ class OnlineLibraryCache {
 
   Future<bool> _isComplete(File file) async {
     return await file.exists() && await file.length() > 0;
+  }
+
+  bool _isCancelled(int epoch, bool Function()? isCancelled) {
+    return epoch != _epoch || isCancelled?.call() == true;
   }
 }
 

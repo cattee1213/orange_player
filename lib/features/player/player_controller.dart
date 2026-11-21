@@ -59,6 +59,21 @@ class PlayerController extends ChangeNotifier {
   String? get activityMessage => _activityMessage;
 
   bool isFileBacked(String trackId) => _fileBackedIds.contains(trackId);
+
+  /// Drops local copies of remote tracks after the online cache is deleted.
+  Future<void> releaseCachedAudio() async {
+    final usesCache = _tracks.any(
+      (track) => track.isRemote && _fileBackedIds.contains(track.id),
+    );
+    if (!usesCache) {
+      return;
+    }
+    await _rebuildQueue(
+      preferredTrackId: currentTrack?.id,
+      resumePosition: _position,
+      resumePlayback: _isPlaying,
+    );
+  }
   bool get hasTracks => _tracks.isNotEmpty;
   bool get canSkipNext => _tracks.length > 1;
   bool get canSkipPrevious => _tracks.length > 1;

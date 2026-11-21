@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../player/models/local_track.dart';
 
-const fixedOnlineLibraryUrl = 'https://bigorange.site/vicky-english/';
+const fixedOnlineLibraryUrl = 'https://www.bigorange.site/vicky-english/';
 
 const audioExtensions = {
   '.mp3',
