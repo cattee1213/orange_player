@@ -16,6 +16,19 @@ class LocalTrack {
   final String artist;
   final bool isGenerated;
 
+  bool get isRemote {
+    final value = path.toLowerCase();
+    return value.startsWith('https://') || value.startsWith('http://');
+  }
+
+  factory LocalTrack.remote({
+    required String url,
+    required String title,
+    String artist = '在线曲库',
+  }) {
+    return LocalTrack(id: url, path: url, title: title, artist: artist);
+  }
+
   factory LocalTrack.fromPath(
     String filePath, {
     String? title,

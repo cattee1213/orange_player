@@ -8,12 +8,15 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../online_library/online_library_cache.dart';
 import 'models/local_track.dart';
 
 enum PlaybackMode { loopAll, shuffle, repeatOne }
 
 class PlayerController extends ChangeNotifier {
-  PlayerController._(this._prefs) : _audioPlayer = AudioPlayer();
+  PlayerController._(this._prefs, {OnlineLibraryCache? onlineCache})
+    : _audioPlayer = AudioPlayer(),
+      _onlineCache = onlineCache ?? OnlineLibraryCache.instance;
 
   static const _playlistKey = 'orange_playlist_tracks';
   static const _modeKey = 'orange_playlist_mode';
@@ -21,7 +24,11 @@ class PlayerController extends ChangeNotifier {
 
   final SharedPreferences _prefs;
   final AudioPlayer _audioPlayer;
+  final OnlineLibraryCache _onlineCache;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+  final Set<String> _fileBackedIds = {};
+  Future<void> _cacheGate = Future<void>.value();
+  bool _disposed = false;
 
   List<LocalTrack> _tracks = const [];
   PlaybackMode _playbackMode = PlaybackMode.loopAll;
@@ -30,6 +37,8 @@ class PlayerController extends ChangeNotifier {
   Duration _duration = Duration.zero;
   bool _isPlaying = false;
   bool _isBusy = true;
+  String? _playbackError;
+  String? _activityMessage;
 
   static Future<PlayerController> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
@@ -46,6 +55,10 @@ class PlayerController extends ChangeNotifier {
   Duration get duration => _duration;
   bool get isPlaying => _isPlaying;
   bool get isBusy => _isBusy;
+  String? get playbackError => _playbackError;
+  String? get activityMessage => _activityMessage;
+
+  bool isFileBacked(String trackId) => _fileBackedIds.contains(trackId);
   bool get hasTracks => _tracks.isNotEmpty;
   bool get canSkipNext => _tracks.length > 1;
   bool get canSkipPrevious => _tracks.length > 1;
@@ -75,12 +88,23 @@ class PlayerController extends ChangeNotifier {
         _isBusy =
             state.processingState == ProcessingState.loading ||
             state.processingState == ProcessingState.buffering;
+        if (state.playing && _playbackError != null) {
+          _playbackError = null;
+        }
         if (state.processingState == ProcessingState.completed &&
             _playbackMode != PlaybackMode.repeatOne) {
           _position = _duration;
         }
         notifyListeners();
       }),
+      _audioPlayer.playbackEventStream.listen(
+        (_) {},
+        onError: (Object _, StackTrace _) {
+          _playbackError = '播放失败，请检查这首音乐是否还能访问';
+          _isBusy = false;
+          notifyListeners();
+        },
+      ),
       _audioPlayer.currentIndexStream.listen((index) {
         _currentIndex = index;
         _persistState();
@@ -144,8 +168,7 @@ class PlayerController extends ChangeNotifier {
   ) async {
     final existingTracks = <LocalTrack>[];
     for (final track in tracks) {
-      final exists = await File(track.path).exists();
-      if (exists) {
+      if (track.isRemote || await File(track.path).exists()) {
         existingTracks.add(track);
       }
     }
@@ -212,6 +235,10 @@ class PlayerController extends ChangeNotifier {
     if (index < 0 || index >= _tracks.length) {
       return;
     }
+    final track = _tracks[index];
+    if (await _alignSourceWithCache(track, position: Duration.zero, play: true)) {
+      return;
+    }
     await _audioPlayer.seek(Duration.zero, index: index);
     await _audioPlayer.play();
   }
@@ -222,14 +249,30 @@ class PlayerController extends ChangeNotifier {
     }
     if (_isPlaying) {
       await _audioPlayer.pause();
-    } else {
-      await _audioPlayer.play();
+      return;
     }
+    final track = currentTrack;
+    if (track != null &&
+        await _alignSourceWithCache(track, position: _position, play: true)) {
+      return;
+    }
+    await _audioPlayer.play();
   }
 
   Future<void> skipNext() async {
     if (_tracks.isEmpty) {
       return;
+    }
+    final nextIndex = _audioPlayer.nextIndex;
+    if (nextIndex != null && nextIndex >= 0 && nextIndex < _tracks.length) {
+      final aligned = await _alignSourceWithCache(
+        _tracks[nextIndex],
+        position: Duration.zero,
+        play: true,
+      );
+      if (aligned) {
+        return;
+      }
     }
     await _audioPlayer.seekToNext();
     if (!_isPlaying) {
@@ -244,6 +287,19 @@ class PlayerController extends ChangeNotifier {
     if (_position > const Duration(seconds: 3)) {
       await _audioPlayer.seek(Duration.zero);
       return;
+    }
+    final previousIndex = _audioPlayer.previousIndex;
+    if (previousIndex != null &&
+        previousIndex >= 0 &&
+        previousIndex < _tracks.length) {
+      final aligned = await _alignSourceWithCache(
+        _tracks[previousIndex],
+        position: Duration.zero,
+        play: true,
+      );
+      if (aligned) {
+        return;
+      }
     }
     await _audioPlayer.seekToPrevious();
     if (!_isPlaying) {
@@ -342,12 +398,14 @@ class PlayerController extends ChangeNotifier {
       return;
     }
 
-    final queue = _tracks
-        .map(
-          (track) =>
-              AudioSource.uri(Uri.file(track.path), tag: track.mediaItem),
-        )
-        .toList();
+    final queue = <AudioSource>[];
+    final fileBacked = <String>{};
+    for (final track in _tracks) {
+      queue.add(await _sourceFor(track, fileBacked));
+    }
+    _fileBackedIds
+      ..clear()
+      ..addAll(fileBacked);
 
     final restoredIndex = _resolveIndex(
       preferredTrackId: preferredTrackId,
@@ -369,6 +427,101 @@ class PlayerController extends ChangeNotifier {
     _isBusy = false;
     await _persistState();
     notifyListeners();
+  }
+
+  Future<AudioSource> _sourceFor(
+    LocalTrack track,
+    Set<String> fileBacked,
+  ) async {
+    if (track.isRemote) {
+      final cached = await _onlineCache.cachedAudio(track.path);
+      if (cached != null) {
+        fileBacked.add(track.id);
+        return AudioSource.uri(Uri.file(cached.path), tag: track.mediaItem);
+      }
+      return AudioSource.uri(
+        Uri.parse(track.path),
+        tag: track.mediaItem,
+        headers: const {'User-Agent': 'OrangePlayer'},
+      );
+    }
+    return AudioSource.uri(Uri.file(track.path), tag: track.mediaItem);
+  }
+
+  /// Downloads a remote track when needed and reloads the queue once the local
+  /// file should replace the network address. Returns true when playback was
+  /// already started from the reloaded queue.
+  Future<bool> _alignSourceWithCache(
+    LocalTrack track, {
+    Duration? position,
+    required bool play,
+  }) {
+    final operation = _cacheGate.then(
+      (_) => _alignSourceBody(track, position: position, play: play),
+    );
+    _cacheGate = operation.then((_) {}, onError: (_) {});
+    return operation;
+  }
+
+  Future<bool> _alignSourceBody(
+    LocalTrack track, {
+    Duration? position,
+    required bool play,
+  }) async {
+    if (!track.isRemote) {
+      return false;
+    }
+    if (!await _onlineCache.isAudioCached(track.path)) {
+      await _cacheRemote(track);
+    }
+    final onDisk = await _onlineCache.isAudioCached(track.path);
+    final usingFile = _fileBackedIds.contains(track.id);
+    if (onDisk == usingFile) {
+      return false;
+    }
+    await _rebuildQueue(
+      preferredTrackId: track.id,
+      resumePosition: position,
+      resumePlayback: play,
+    );
+    return true;
+  }
+
+  Future<void> _cacheRemote(LocalTrack track) async {
+    if (!track.isRemote || await _onlineCache.isAudioCached(track.path)) {
+      return;
+    }
+    _activityMessage = '正在缓存「${track.title}」';
+    notifyListeners();
+    var lastBucket = -1;
+    try {
+      await _onlineCache.downloadAudio(
+        track.path,
+        onProgress: (received, total) {
+          if (_disposed || total == null || total <= 0) {
+            return;
+          }
+          final bucket = received * 10 ~/ total;
+          if (bucket == lastBucket) {
+            return;
+          }
+          lastBucket = bucket;
+          _activityMessage = '正在缓存「${track.title}」 ${bucket * 10}%';
+          notifyListeners();
+        },
+      );
+    } catch (_) {
+      if (_disposed) {
+        return;
+      }
+      _playbackError = '缓存失败，改为在线播放';
+      notifyListeners();
+    } finally {
+      _activityMessage = null;
+      if (!_disposed) {
+        notifyListeners();
+      }
+    }
   }
 
   int _resolveIndex({String? preferredTrackId, int? explicitIndex}) {
@@ -433,6 +586,7 @@ class PlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }

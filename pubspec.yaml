@@ -1,5 +1,5 @@
 name: orange_player
-description: '聆听橙子 - 作者橙子，专注本地离线与后台播放的音乐播放器。'
+description: '聆听橙子 - 作者橙子，支持本地播放和自己的在线曲库。'
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -9,10 +9,12 @@ environment:
 dependencies:
   audio_service: ^0.18.18
   audio_session: ^0.2.2
+  crypto: ^3.0.7
   ffmpeg_kit_flutter_new_audio: ^2.4.4
   file_picker: ^10.3.10
   flutter:
     sdk: flutter
+  http: ^1.6.0
   just_audio: ^0.10.5
   just_audio_background: ^0.0.1-beta.17
   path: ^1.9.1

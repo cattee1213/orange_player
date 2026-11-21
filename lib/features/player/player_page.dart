@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../media_library/local_music_library_page.dart';
+import '../online_library/online_music_library_page.dart';
 import 'models/local_track.dart';
 import 'player_controller.dart';
 
@@ -18,6 +19,14 @@ class _PlayerPageState extends State<PlayerPage> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LocalMusicLibraryPage(playerController: controller),
+      ),
+    );
+  }
+
+  Future<void> _openOnlineLibrary() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OnlineMusicLibraryPage(playerController: controller),
       ),
     );
   }
@@ -52,11 +61,13 @@ class _PlayerPageState extends State<PlayerPage> {
                     _PlayerHeader(
                       onImport: _importTracks,
                       onOpenLibrary: _openLibrary,
+                      onOpenOnline: _openOnlineLibrary,
                     ),
                     const SizedBox(height: 12),
                     _NowPlayingCard(
                       controller: controller,
                       onImport: _importTracks,
+                      onOpenOnline: _openOnlineLibrary,
                     ),
                     const SizedBox(height: 24),
                     Expanded(child: _PlaylistSection(controller: controller)),
@@ -74,7 +85,12 @@ class _PlayerPageState extends State<PlayerPage> {
 class _PlayerHeader extends StatelessWidget {
   final VoidCallback onImport;
   final VoidCallback onOpenLibrary;
-  const _PlayerHeader({required this.onImport, required this.onOpenLibrary});
+  final VoidCallback onOpenOnline;
+  const _PlayerHeader({
+    required this.onImport,
+    required this.onOpenLibrary,
+    required this.onOpenOnline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -84,28 +100,43 @@ class _PlayerHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(Icons.music_note_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Orange Player',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+          Flexible(
+            child: Row(
+              children: [
+                Icon(
+                  Icons.music_note_rounded,
+                  color: theme.colorScheme.primary,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Orange Player',
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           Row(
             children: [
               IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.library_music_rounded),
                 onPressed: onOpenLibrary,
                 tooltip: '本地曲库',
               ),
-              const SizedBox(width: 8),
               IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.cloud_rounded),
+                onPressed: onOpenOnline,
+                tooltip: '在线曲库',
+              ),
+              IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.add_rounded),
                 onPressed: onImport,
                 tooltip: '导入音乐',
@@ -121,7 +152,12 @@ class _PlayerHeader extends StatelessWidget {
 class _NowPlayingCard extends StatelessWidget {
   final PlayerController controller;
   final VoidCallback onImport;
-  const _NowPlayingCard({required this.controller, required this.onImport});
+  final VoidCallback onOpenOnline;
+  const _NowPlayingCard({
+    required this.controller,
+    required this.onImport,
+    required this.onOpenOnline,
+  });
 
   String _formatDuration(Duration duration) {
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -165,6 +201,12 @@ class _NowPlayingCard extends StatelessWidget {
                 onPressed: onImport,
                 icon: const Icon(Icons.folder_open_rounded),
                 label: const Text('导入本地音频'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onOpenOnline,
+                icon: const Icon(Icons.cloud_rounded),
+                label: const Text('打开在线曲库'),
               ),
             ],
           ),
@@ -251,6 +293,20 @@ class _NowPlayingCard extends StatelessWidget {
               ),
             ],
           ),
+          if (controller.activityMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              controller.activityMessage!,
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.primary),
+            ),
+          ],
+          if (controller.playbackError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              controller.playbackError!,
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            ),
+          ],
           const SizedBox(height: 16),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
@@ -398,6 +454,7 @@ class _PlaylistSection extends StatelessWidget {
                         index: index,
                         isCurrent: isCurrent,
                         isPlaying: isCurrent && controller.isPlaying,
+                        isCached: controller.isFileBacked(track.id),
                         onTap: () => controller.playTrack(index),
                         onRemove: () => controller.removeTrackAt(index),
                       );
@@ -410,11 +467,23 @@ class _PlaylistSection extends StatelessWidget {
   }
 }
 
+String _trackSubtitle(LocalTrack track, {required bool cached}) {
+  if (!track.isRemote) {
+    return track.artist;
+  }
+  final state = cached ? '已缓存' : '在线';
+  if (track.artist == '在线曲库') {
+    return state;
+  }
+  return '${track.artist} · $state';
+}
+
 class _TrackTile extends StatelessWidget {
   final LocalTrack track;
   final int index;
   final bool isCurrent;
   final bool isPlaying;
+  final bool isCached;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
@@ -424,6 +493,7 @@ class _TrackTile extends StatelessWidget {
     required this.index,
     required this.isCurrent,
     required this.isPlaying,
+    required this.isCached,
     required this.onTap,
     required this.onRemove,
   });
@@ -472,7 +542,7 @@ class _TrackTile extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          track.artist,
+          _trackSubtitle(track, cached: isCached),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
